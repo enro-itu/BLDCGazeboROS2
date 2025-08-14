@@ -25,6 +25,7 @@
         <gravity>0 0 -9.81</gravity>
         <atmosphere type="adiabatic" />
 
+        
         <light type="directional" name="sun">
             <cast_shadows>true</cast_shadows>
             <pose>0 0 10 0 0 0</pose>
@@ -65,5 +66,11 @@
                 </visual>
             </link>
         </model>
+
+
+        <include>
+            <uri>model://bldc_motor</uri>
+            <pose>0 0 20 0 0 0</pose>
+        </include>
   </world>
 </sdf>

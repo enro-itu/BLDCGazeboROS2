@@ -10,6 +10,23 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <exec_depend>rclpp</exec_depend>
+
+  <build_depend>gz-sim8</build_depend>
+  <exec_depend>gz-sim8</exec_depend>
+
+  <build_depend>gz-math7</build_depend>
+  <exec_depend>gz-math7</exec_depend>
+
+  <build_depend>gz-common5</build_depend>
+  <exec_depend>gz-common5</exec_depend>
+
+  <build_depend>gz-transport13</build_depend>
+  <exec_depend>gz-transport13</exec_depend>
+
+  <build_depend>gz-plugin2</build_depend>
+  <exec_depend>gz-plugin2</exec_depend>
+
   <depend>rclpy</depend>
   <depend>ros_gz_sim</depend>
 

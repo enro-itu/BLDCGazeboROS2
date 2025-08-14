@@ -1,0 +1,125 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="bldc_motor">
+    <plugin
+      filename="gz-sim-joint-controller-system"
+      name="gz::sim::systems::JointController">
+      <joint_name>rotor_joint</joint_name>
+      <topic>/rotor_joint/cmd_vel</topic>
+      <initial_velocity>20.0</initial_velocity>
+    </plugin>
+    
+    <plugin filename="bldc_motor_plugin" name="BLDCMotorPlugin">
+      <joint_name>rotor_joint</joint_name>
+      <resistance>0.5</resistance>
+      <ke>0.02</ke>
+      <kt>0.02</kt>
+      <voltage_topic>/bldc_motor/voltage</voltage_topic>
+      <state_topic>/bldc_motor/state</state_topic>
+    </plugin>
+  
+    <pose>0 0 0 0 0 0</pose>
+    <static>false</static>
+
+    <!-- STATOR (fixed) -->
+    <link name="stator">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.5</mass>
+        <inertia>
+          <ixx>0.0005</ixx>
+          <iyy>0.0005</iyy>
+          <izz>0.0005</izz>
+        </inertia>
+      </inertial>
+      <collision name="stator_collision">
+        <geometry>
+          <!-- <cylinder>
+            <radius>0.05</radius>
+            <length>0.05</length>
+          </cylinder> -->
+          <mesh>
+            <uri>model://bldc_motor/meshes/stator.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="stator_visual">
+        <geometry>
+          <!-- <cylinder>
+            <radius>0.05</radius>
+            <length>0.05</length>
+          </cylinder> -->
+          <mesh>
+            <uri>model://bldc_motor/meshes/stator.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.3 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ROTOR (rotating) -->
+    <link name="rotor">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.0002</ixx>
+          <iyy>0.0002</iyy>
+          <izz>0.0002</izz>
+        </inertia>
+      </inertial>
+      <collision name="rotor_collision">
+        <geometry>
+          <!-- <cylinder>
+            <radius>0.045</radius>
+            <length>0.04</length>
+          </cylinder> -->
+          <mesh>
+            <uri>model://bldc_motor/meshes/rotor.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="rotor_visual">
+        <geometry>
+          <!-- <cylinder>
+            <radius>0.045</radius>
+            <length>0.1</length>
+          </cylinder> -->
+          <mesh>
+            <uri>model://bldc_motor/meshes/rotor.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.6 0.1 0.1 1</ambient>
+          <diffuse>0.8 0.2 0.2 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- REVOLUTE JOINT -->
+    <joint name="rotor_joint" type="revolute">
+      <parent>stator</parent>
+      <child>rotor</child>
+      <pose>0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 0 1</xyz> <!-- rotation around Z -->
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+        <dynamics>
+          <damping>0.0001</damping>
+          <friction>0.00005</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+  </model>
+</sdf>
