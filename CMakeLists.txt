@@ -4,14 +4,20 @@ project(bldc_gz_sim)
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclpy REQUIRED)
-find_package(ros_gz_sim REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(gz-sim8 REQUIRED)
 find_package(gz-math7 REQUIRED)
 find_package(gz-common5 REQUIRED)
 
 add_library(bldc_motor_plugin SHARED src/bldc_motor_plugin.cpp)
-ament_target_dependencies(bldc_motor_plugin rclcpp)
+
+ament_target_dependencies(bldc_motor_plugin
+  rclcpp
+  geometry_msgs
+  std_msgs
+)
+
 target_link_libraries(bldc_motor_plugin
   gz-sim8::gz-sim8
   gz-math7::gz-math7

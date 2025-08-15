@@ -14,8 +14,17 @@
       <resistance>0.5</resistance>
       <ke>0.02</ke>
       <kt>0.02</kt>
-      <voltage_topic>/bldc_motor/voltage</voltage_topic>
-      <state_topic>/bldc_motor/state</state_topic>
+
+      <!-- publish state at 1 Hz -->
+      <publish_rate_hz>1.0</publish_rate_hz>
+
+      <!-- optional: run control loop at 200 Hz (or omit/0.0 to run every step) -->
+      <control_rate_hz>0.0</control_rate_hz>
+
+      <!-- if you want to command via ROS directly -->
+      <use_ros_voltage_sub>true</use_ros_voltage_sub>
+
+      <use_ros_voltage_sub>true</use_ros_voltage_sub>
     </plugin>
   
     <pose>0 0 0 0 0 0</pose>
