@@ -1,16 +1,16 @@
-<?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>bldc_gz_sim</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>BLDC motor simulation plugin for Gazebo and ROS 2</description>
   <maintainer email="emrec@todo.todo">emrec</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <exec_depend>rclpp</exec_depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ros_gz_sim</depend>
 
   <build_depend>gz-sim8</build_depend>
   <exec_depend>gz-sim8</exec_depend>
@@ -26,9 +26,6 @@
 
   <build_depend>gz-plugin2</build_depend>
   <exec_depend>gz-plugin2</exec_depend>
-
-  <depend>rclpy</depend>
-  <depend>ros_gz_sim</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

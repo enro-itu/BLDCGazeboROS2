@@ -11,20 +11,28 @@
     
     <plugin filename="bldc_motor_plugin" name="BLDCMotorPlugin">
       <joint_name>rotor_joint</joint_name>
-      <resistance>0.5</resistance>
-      <ke>0.02</ke>
-      <kt>0.02</kt>
 
-      <!-- publish state at 1 Hz -->
-      <publish_rate_hz>1.0</publish_rate_hz>
+      <!-- Electrical -->
+      <resistance>0.35</resistance>           <!-- Ohm -->
+      <ke>0.0955</ke>                          <!-- V*s/rad -->
+      <kt>0.0955</kt>                          <!-- N*m/A -->
 
-      <!-- optional: run control loop at 200 Hz (or omit/0.0 to run every step) -->
-      <control_rate_hz>0.0</control_rate_hz>
+      <!-- Limits -->
+      <voltage_limit>48.0</voltage_limit>      <!-- Volts -->
+      <current_limit>40.0</current_limit>      <!-- Amps (peak) -->
+      <torque_limit>4.2</torque_limit>         <!-- N*m (motor tarafı ~38/9) -->
 
-      <!-- if you want to command via ROS directly -->
+      <!-- Friction -->
+      <viscous_friction>0.002</viscous_friction>    <!-- N*m*s/rad -->
+      <coulomb_friction>0.02</coulomb_friction>     <!-- N*m -->
+
+      <!-- ROS interface -->
       <use_ros_voltage_sub>true</use_ros_voltage_sub>
+      <ros_voltage_topic>/bldc_motor/voltage_cmd</ros_voltage_topic>
 
-      <use_ros_voltage_sub>true</use_ros_voltage_sub>
+      <!-- Telemetri hızı -->
+      <publish_rate_hz>50.0</publish_rate_hz>
+      <control_rate_hz>0.0</control_rate_hz>  <!-- her sim adımında -->
     </plugin>
   
     <pose>0 0 0 0 0 0</pose>
