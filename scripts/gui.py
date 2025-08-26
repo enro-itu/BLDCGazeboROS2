@@ -7,7 +7,9 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
-from std_msgs.msg import Float32MultiArray
+
+from std_msgs.msg import Float32MultiArray, Float64
+from geometry_msgs.msg import Vector3
 
 RPM_PER_RADPS = 60.0 / (2.0 * math.pi)
 
@@ -21,21 +23,27 @@ class MotorPlotNode(Node):
     def __init__(self):
         super().__init__('bldc_motor_plotter')
 
-        # ---------- ROS Subscription ----------
+        # ---------- ROS wiring ----------
         qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
             depth=50
         )
         self.topic = '/bldc_motor/state'
-        self.sub = self.create_subscription(
-            Float32MultiArray, self.topic, self.listener_callback, qos
+
+        # Subscribers: accept either Float32MultiArray or Vector3 on the same topic
+        self.sub_vec3 = self.create_subscription(
+            Vector3, self.topic, self.listener_callback_vec3, qos
         )
 
-        # Mesaj alan indeksleri (ayar panelinden değiştirilebilir)
+        # Publisher for voltage command
+        self.pub_voltage = self.create_publisher(Float64, '/bldc_motor/voltage', 10)
+        self.current_voltage_cmd = 0.0
+
+        # Message field indices (can be changed from the UI)
         self.idx_omega   = 0   # rad/s
-        self.idx_current = 1   # A (faz veya DC; elektrik güç hesabında DC varsayıyoruz)
-        self.idx_vbus    = 2   # V (komut yerine gerçek DC varsa daha doğru)
+        self.idx_current = 1   # A (assume DC for power calc)
+        self.idx_vbus    = 2   # V (if message includes it; GUI can override)
         self.idx_torque  = 3   # Nm
 
         # ---------- Data Buffers ----------
@@ -47,29 +55,25 @@ class MotorPlotNode(Node):
         self.power_data  = collections.deque(maxlen=self.max_points)
         self.eff_data    = collections.deque(maxlen=self.max_points)
         self.ts_data     = collections.deque(maxlen=self.max_points)   # timestamps
+        self.last_rx_times = collections.deque(maxlen=100)             # for rate calc
 
-        self.last_rx_times = collections.deque(maxlen=100)             # msg rate hesap
-
-        # ---------- Defaults (AK10-9 V2 KV100 datasheet) ----------
-        # Kaynak: CubeMars ürün sayfasındaki tablo. (9:1, 24/48V; 15Nm nominal, 38Nm peak, 205/421 rpm nominal; 266/533 rpm no-load; 16.2/41.2A)
+        # ---------- Defaults (AK10-9 V2 KV100 example) ----------
         self.default_ratio = 9.0
         self.kv = 100.0               # rpm/V
-        self.kt_lock = True           # Kt'yi Kv'den türet
-        self.kt = kt_from_kv(self.kv) # Nm/A (motor tarafı)
-        self.r_phase = 0.0655         # Ω (65.5 mΩ, kaynaklarda değişebilir)
-        self.l_phase = 60e-6          # H (yaklaşık)
-        self.gear_eff = 0.9           # tahmini dişli verimi
+        self.kt_lock = True           # derive Kt from Kv
+        self.kt = kt_from_kv(self.kv) # Nm/A (motor side)
+        self.r_phase = 0.0655         # Ω
+        self.l_phase = 60e-6          # H
+        self.gear_eff = 0.9
         self.fixed_vbus_enabled = False
         self.fixed_vbus = 48.0
 
-        # Limitler / rehber çizgiler
+        # Limits / guide lines
         self.torque_rated = 15.0      # Nm @ output
         self.torque_peak  = 38.0      # Nm @ output
-        self.speed_rated_rpm_48 = 421 # rpm @ 48 V (nominal)
-        self.speed_noload_rpm_48 = 533
 
-        # Filtre / görselleştirme
-        self.ma_window = 10           # hareketli ortalama pencere
+        # Filters / plotting
+        self.ma_window = 10
         self.plot_paused = False
         self.recording = False
         self.csv_writer = None
@@ -77,9 +81,9 @@ class MotorPlotNode(Node):
 
         # ---------- Qt UI ----------
         self.app = QtWidgets.QApplication(sys.argv)
-        self.app.setApplicationName("BLDC Motor Live Monitor (AK10-9)")
+        self.app.setApplicationName("BLDC Motor Live Monitor")
         self.win = QtWidgets.QMainWindow()
-        self.win.setWindowTitle("BLDC Motor Live Plots – AK10-9 Monitor")
+        self.win.setWindowTitle("BLDC Motor Live Plots – Monitor & Control")
         self.central = QtWidgets.QWidget()
         self.win.setCentralWidget(self.central)
 
@@ -101,7 +105,6 @@ class MotorPlotNode(Node):
         self.plot_speed.setLabel('bottom', 'Torque', units='Nm')
         self.plot_speed.setLabel('left', 'Speed', units='rpm')
         self.curve_speed = self.plot_speed.plot(pen='y')
-        # Limit çizgileri
         self.vline_t_rated_1 = pg.InfiniteLine(angle=90, pos=self.torque_rated, pen=pg.mkPen((200,200,200), style=QtCore.Qt.DashLine))
         self.vline_t_peak_1  = pg.InfiniteLine(angle=90, pos=self.torque_peak,  pen=pg.mkPen((255,150,150), style=QtCore.Qt.DashLine))
         self.plot_speed.addItem(self.vline_t_rated_1); self.plot_speed.addItem(self.vline_t_peak_1)
@@ -158,7 +161,7 @@ class MotorPlotNode(Node):
         self.ts_plot_vbus.setLabel('bottom', 'Time', units='s')
         self.ts_curve_vbus = self.ts_plot_vbus.plot(pen='w')
 
-        # Right: Settings / status panel
+        # Right: Settings / status / control panel
         self.panel = self._build_settings_panel()
         main_layout.addWidget(self.panel, stretch=0)
 
@@ -168,7 +171,7 @@ class MotorPlotNode(Node):
         self.ui_timer.timeout.connect(self.update_plots)
         self.ui_timer.start(100)  # 10 Hz
 
-        # rclpy spin entegrasyonu (Qt loop ile)
+        # rclpy spin integration with Qt
         self.ros_timer = QtCore.QTimer()
         self.ros_timer.timeout.connect(self._spin_ros_once)
         self.ros_timer.start(5)   # ~200 Hz non-blocking
@@ -234,7 +237,7 @@ class MotorPlotNode(Node):
         f2.addRow("Tepe Tork Çizgisi", self.dsb_t_peak)
         v.addWidget(grp_params)
 
-        # Controls
+        # Controls (pause / record + voltage command)
         grp_ctrl = QtWidgets.QGroupBox("Kontrol")
         h = QtWidgets.QHBoxLayout(grp_ctrl)
         self.btn_pause = QtWidgets.QPushButton("Pause/Resume")
@@ -245,6 +248,16 @@ class MotorPlotNode(Node):
         self.btn_rec.toggled.connect(self._toggle_rec)
         h.addWidget(self.btn_pause); h.addWidget(self.btn_rec)
         v.addWidget(grp_ctrl)
+
+        # Voltage command row
+        f_cmd = QtWidgets.QFormLayout()
+        self.dsb_cmd_v = QtWidgets.QDoubleSpinBox()
+        self.dsb_cmd_v.setRange(-48.0, 48.0)
+        self.dsb_cmd_v.setDecimals(2)
+        self.dsb_cmd_v.setSingleStep(0.10)
+        self.dsb_cmd_v.valueChanged.connect(self._send_voltage)
+        f_cmd.addRow("Command Voltage (V)", self.dsb_cmd_v)
+        v.addLayout(f_cmd)
 
         # Live readouts
         grp_stats = QtWidgets.QGroupBox("Anlık Değerler")
@@ -275,13 +288,17 @@ class MotorPlotNode(Node):
             self.idx_torque  = self.sb_idx_torque.value()
 
             if new_topic != self.topic:
-                # unsubscribe & resubscribe
-                if self.sub is not None:
-                    self.destroy_subscription(self.sub)
+                # Unsubscribe existing
+                if hasattr(self, "sub_vec3") and self.sub_vec3 is not None:
+                    self.destroy_subscription(self.sub_vec3)
+                    self.sub_vec3 = None
+                # Re-subscribe only as Vector3
                 self.topic = new_topic
                 qos = QoSProfile(depth=50, reliability=ReliabilityPolicy.BEST_EFFORT)
-                self.sub = self.create_subscription(Float32MultiArray, self.topic, self.listener_callback, qos)
-                self.get_logger().info(f"Re-subscribed to {self.topic}")
+                self.sub_vec3 = self.create_subscription(
+                    Vector3, self.topic, self.listener_callback_vec3, qos
+                )
+                self.get_logger().info(f"Re-subscribed to {self.topic} (Vector3 only)")
         except Exception as e:
             self.get_logger().warn(f"Topic apply error: {e}")
 
@@ -295,7 +312,6 @@ class MotorPlotNode(Node):
 
     def _lock_changed(self, checked):
         if checked:
-            # eşitle ve kilitleme etkisi
             self._kv_changed(self.dsb_kv.value())
 
     def _limits_changed(self, _):
@@ -343,44 +359,56 @@ class MotorPlotNode(Node):
             self.get_logger().warn(f"spin_once: {e}")
 
     # ---------- Data Path ----------
-    def listener_callback(self, msg: Float32MultiArray):
+    def listener_callback_arr(self, msg: Float32MultiArray):
         try:
             data = msg.data
-            # Güvenli erişim
+            # safe indexing
             if max(self.idx_omega, self.idx_current, self.idx_vbus, self.idx_torque) >= len(data):
                 return
 
             omega  = float(data[self.idx_omega])     # rad/s
             current= float(data[self.idx_current])   # A
-            v_in   = float(data[self.idx_vbus])      # V (komut veya gerçek bus)
-            torque = float(data[self.idx_torque])    # Nm (output)
+            v_in   = float(data[self.idx_vbus])      # V (cmd or actual bus)
+            torque = float(data[self.idx_torque])    # Nm
 
             if self.cb_fixed_v.isChecked():
                 v_in = float(self.dsb_vbus.value())
 
-            mech_power = max(0.0, omega * torque)    # W (rad/s * Nm)
-            elec_power = max(1e-6, v_in * abs(current))
-
-            eff = 100.0 * min(2.0, mech_power / elec_power)  # %
-
-            t = time.monotonic()
-            self.ts_data.append(t)
-            self.torque_data.append(torque)
-            self.speed_data.append(omega)
-            self.current_data.append(current)
-            self.vbus_data.append(v_in)
-            self.power_data.append(mech_power)
-            self.eff_data.append(eff)
-
-            # msg rate ölçümü
-            self.last_rx_times.append(t)
-
-            # CSV
-            if self.recording and self.csv_writer:
-                self.csv_writer.writerow([t, omega, omega*RPM_PER_RADPS, torque, current, v_in, mech_power, eff])
+            self._ingest_sample(omega, current, torque, v_in)
 
         except Exception as e:
             self.get_logger().warn(f"Hata: {e}")
+
+    def listener_callback_vec3(self, msg: Vector3):
+        """Accept geometry_msgs/Vector3 (x=omega, y=current, z=torque)."""
+        try:
+            omega = float(msg.x)
+            current = float(msg.y)
+            torque = float(msg.z)
+            # v_in: use fixed bus V if enabled, else 0 (plugin doesn't send V)
+            v_in = float(self.dsb_vbus.value()) if self.cb_fixed_v.isChecked() else 0.0
+            self._ingest_sample(omega, current, torque, v_in)
+        except Exception as e:
+            self.get_logger().warn(f"Vector3 parse error: {e}")
+
+    def _ingest_sample(self, omega: float, current: float, torque: float, v_in: float):
+        mech_power = max(0.0, omega * torque)    # W (rad/s * Nm)
+        elec_power = max(1e-6, v_in * abs(current))
+        eff = 100.0 * min(2.0, mech_power / elec_power)  # %
+
+        t = time.monotonic()
+        self.ts_data.append(t)
+        self.torque_data.append(torque)
+        self.speed_data.append(omega)
+        self.current_data.append(current)
+        self.vbus_data.append(v_in)
+        self.power_data.append(mech_power)
+        self.eff_data.append(eff)
+
+        self.last_rx_times.append(t)
+
+        if self.recording and self.csv_writer:
+            self.csv_writer.writerow([t, omega, omega*RPM_PER_RADPS, torque, current, v_in, mech_power, eff])
 
     # ---------- Helpers ----------
     def _moving_avg(self, arr, n):
@@ -396,17 +424,24 @@ class MotorPlotNode(Node):
             out.append(s / len(q))
         return out
 
+    def _send_voltage(self, v: float):
+        """Publish voltage command whenever spinbox changes."""
+        try:
+            msg = Float64(); msg.data = float(v)
+            self.pub_voltage.publish(msg)
+            self.current_voltage_cmd = float(v)
+        except Exception as e:
+            self.get_logger().warn(f"Voltage publish error: {e}")
+
     def update_plots(self):
-        # Anlık hız ve istatistikler
+        # Compute and show message rate
         now = time.monotonic()
-        # Rate
-        rate = 0.0
         while self.last_rx_times and now - self.last_rx_times[0] > 1.0:
             self.last_rx_times.popleft()
+        rate = 0.0
         if len(self.last_rx_times) >= 2:
             dt = (self.last_rx_times[-1] - self.last_rx_times[0]) / max(1, (len(self.last_rx_times)-1))
-            if dt > 0:
-                rate = 1.0 / dt
+            if dt > 0: rate = 1.0 / dt
         self.lbl_rate.setText(f"Rate: {rate:0.1f} Hz")
 
         if not self.torque_data:
