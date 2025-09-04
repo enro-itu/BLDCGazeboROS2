@@ -1,13 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(bldc_gz_sim)
 
-<<<<<<< Updated upstream
-# find dependencies
-=======
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
->>>>>>> Stashed changes
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -38,7 +34,7 @@ install(TARGETS bldc_motor_plugin
   LIBRARY DESTINATION lib
 )
 
-foreach(dir launch models world config)
+foreach(dir launch models worlds config)
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
     install(DIRECTORY ${dir} DESTINATION share/${PROJECT_NAME})
   endif()
