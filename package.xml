@@ -3,7 +3,6 @@
   <name>bldc_gz_sim</name>
   <version>0.0.1</version>
   <description>BLDC motor simulation plugin for Gazebo and ROS 2</description>
-
   <maintainer email="emrec@todo.todo">emrec</maintainer>
   <license>Apache-2.0</license>
 
