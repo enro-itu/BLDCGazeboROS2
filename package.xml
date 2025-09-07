@@ -1,31 +1,18 @@
 <?xml version="1.0"?>
-<<<<<<< Updated upstream
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<package format="3">
-  <name>bldc_gz_sim</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-=======
 <package format="3">
   <name>bldc_gz_sim</name>
   <version>0.0.1</version>
   <description>BLDC motor simulation plugin for Gazebo and ROS 2</description>
->>>>>>> Stashed changes
   <maintainer email="emrec@todo.todo">emrec</maintainer>
   <license>Apache-2.0</license>
 
   <!-- Build system -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-<<<<<<< Updated upstream
-  <depend>rclcpp</depend>
-  <exec_depend>rclpp</exec_depend>
-=======
   <!-- C++ ROS 2 dependencies -->
   <build_depend>rclcpp</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
->>>>>>> Stashed changes
 
   <exec_depend>rclpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
@@ -47,11 +34,6 @@
   <build_depend>gz-plugin2</build_depend>
   <exec_depend>gz-plugin2</exec_depend>
 
-<<<<<<< Updated upstream
-  <depend>rclpy</depend>
-  <depend>ros_gz_sim</depend>
-
-=======
   <!-- ROS-Gazebo Integration -->
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
@@ -62,7 +44,6 @@
   <exec_depend>python3-pyqtgraph</exec_depend>
 
   <!-- Tests -->
->>>>>>> Stashed changes
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

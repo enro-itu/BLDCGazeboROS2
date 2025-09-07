@@ -1,13 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(bldc_gz_sim)
 
-<<<<<<< Updated upstream
-# find dependencies
-=======
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
->>>>>>> Stashed changes
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
