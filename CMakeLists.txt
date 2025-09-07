@@ -34,7 +34,7 @@ install(TARGETS bldc_motor_plugin
   LIBRARY DESTINATION lib
 )
 
-foreach(dir launch models world config)
+foreach(dir launch models worlds config)
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
     install(DIRECTORY ${dir} DESTINATION share/${PROJECT_NAME})
   endif()
